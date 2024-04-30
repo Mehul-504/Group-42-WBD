@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const jwtSecret = "#$ThisIsAWebDevelopmentProjectCreatedUsingMernStack$#";
+const client = require("./client");
 
 const Object = require('../models/Object');
 const Company = require('../models/Company');
@@ -128,6 +129,8 @@ const productdetails = async (req, res) => {
 // Used For Placing Order 
 const placeorder = async (req, res) => {
     try {
+        await client.del(`customer:${req.body.username}`);
+        await bought.del(`bought:${req.body.username}`);
         const obj = await Object.findById(req.body.id);
         const discount = parseInt(req.body.discount)
         const cust = await Customer.findOne({ username: req.body.username })
@@ -255,8 +258,15 @@ const validcode = async (req, res) => {
 // Used For Fetching Personal Information Of The Users
 const pinfo = async (req, res) => {
     try {
+        const cacheValue = await client.get(`customer:${req.body.username}`);
+        const boughtCache = await client.get(`bought:${req.body.username}`);
+        if(cacheValue) return res.json({success: true,customer: JSON.parse(cacheValue), bought: JSON.parse(boughtCache)});
         const cust = await Customer.findOne({ username: req.body.username })
         const b = await Bought.find({ username: req.body.username }).populate('product')
+        await client.set(`customer:${req.body.username}`,JSON.stringify(cust));
+        await client.set(`bought:${req.body.username}`,JSON.stringify(boughtCache));
+        await client.expire(`customer:${req.body.username}`,120);
+        await client.expire(`bought:${req.body.username}`,120);
         return res.json({ success: true, customer: cust, bought: b })
     } catch (error) {
         console.error(error);
